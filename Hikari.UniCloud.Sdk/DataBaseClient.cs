@@ -1,10 +1,11 @@
 ﻿using Hikari.Common;
 using Hikari.Common.Net.Http;
 using Hikari.Common.Security;
-using System.Linq;
+using System.Collections;
+using System.Collections.Generic;
 using System.Text.Json;
 
-namespace ConsoleApp1.UniCloud
+namespace Hikari.UniCloud.Sdk
 {
     /// <summary>
     /// 访问云数据基类
@@ -108,9 +109,9 @@ namespace ConsoleApp1.UniCloud
         /// 小程序云数据库添加方法
         /// </summary>
         /// <param name="collectionName"></param>
-        /// <param name="param"></param>
+        /// <param name="paramData"></param>
         /// <returns></returns>
-        public async Task<ResponseBase> AddAsync(string collectionName, AddParameter param)
+        public async Task<string> AddAsync(string collectionName, IDictionary<string, object> paramData)
         {
             var accessToken = await GetAccessTokenAsync();
             var fun = """
@@ -131,7 +132,8 @@ namespace ConsoleApp1.UniCloud
             }
             """;
             fun = fun.Replace("\r", "").Replace("\n", "").Replace(" ", "").Replace("\t", "");
-            string data = JsonSerializer.Serialize(param.Data);
+            fun = fun.Replace("$collectionName", collectionName);
+            string data = JsonSerializer.Serialize(paramData);
             fun = fun.Replace("$data", data);
 
 
@@ -156,40 +158,152 @@ namespace ConsoleApp1.UniCloud
             var json = await _httpClient.PostAsync(url, p, headerItem: headerItem);
             var jo = System.Text.Json.JsonDocument.Parse(json);
             bool success = jo.RootElement.GetProperty("success").GetBoolean();
-            var resData = new List<T>();
+            var id = "";
             if (success)
             {
-                var res = jo.RootElement.GetProperty("data").GetProperty("data").EnumerateArray();
+                id = jo.RootElement.GetProperty("data").GetProperty("id").GetString();
 
             }
 
-            return resultData;
+            return id;
         }
 
-        ///// <summary>
-        ///// 小程序云数据库更新方法
-        ///// </summary>
-        ///// <param name="dateBaseName"></param>
-        ///// <param name="update"></param>
-        ///// <returns></returns>
-        //public async Task<ResponseBase> UpdateAsync(UpdateParameter update)
-        //{
-        //    //小程序云数据库查询接口API地址
-        //    string url = $"https://api.weixin.qq.com/tcb/databaseupdate?access_token={AccessTokenInit()}";
-        //    //小程序云数据库查询接口参数
-        //    UpdateParameter queryClass = new UpdateParameter();
+        /// <summary>
+        /// 小程序云数据库添加方法
+        /// </summary>
+        /// <param name="collectionName"></param>
+        /// <param name="paramData"></param>
+        /// <returns></returns>
+        public async Task<List<string>> AddListAsync(string collectionName, List<IDictionary<string, object>> paramData)
+        {
+            var accessToken = await GetAccessTokenAsync();
 
-        //    string updateString = $"db.collection(\"{update.TableName}\").where({update.Where}).update({{data: {update.Data}}})";
+            var fun = """
+                        {
+            	"functionTarget": "DCloud-clientDB",
+            	"functionArgs": {
+            		"command": {
+            			"$db": [{
+            				"$method": "collection",
+            				"$param": ["$collectionName"]
+            			}, {
+            	            "$method": "add",
+            	            "$param": [$data]
+                        }]
+            		},
+            		"uniIdToken": ""
+            	}
+            }
+            """;
+            fun = fun.Replace("\r", "").Replace("\n", "").Replace(" ", "").Replace("\t", "");
+            fun = fun.Replace("$collectionName", collectionName);
+            string data = JsonSerializer.Serialize(paramData);
+            fun = fun.Replace("$data", data);
 
-        //    var queryBase = new Dictionary<string, object>()
-        //    {
-        //        {"env", _env},
-        //        {"query", updateString.Replace("\n", "").Replace("\r", "")}
-        //    };
-        //    string json = await _httpClient.PostAsync(url, queryBase);
-        //    ResponseBase resultData = System.Text.Json.JsonSerializer.Deserialize<ResponseBase>(json);
-        //    return resultData;
-        //}
+            var p = new Dictionary<string, object>()
+            {
+                { "method", "serverless.function.runtime.invoke" },
+                { "params",  fun},
+                { "spaceId", this._spaceId },
+                { "timestamp", DateTime.Now.ToUnixTimeMilliseconds() },
+                {"token", accessToken}
+            };
+
+            string url = "https://api.bspapp.com/client";
+
+            var headerItem = new Dictionary<string, string>()
+                {
+                    { "Content-Type", "application/json" },
+                    { "x-serverless-sign", Sign(p, this._clientSecret) },
+                    {"x-basement-token", p["token"].ToString()}
+                }
+                ;
+            var json = await _httpClient.PostAsync(url, p, headerItem: headerItem);
+            var jo = System.Text.Json.JsonDocument.Parse(json);
+            bool success = jo.RootElement.GetProperty("success").GetBoolean();
+            var ids = new List<string>();
+            if (success)
+            {
+                var res = jo.RootElement.GetProperty("data").GetProperty("ids").EnumerateArray();
+                foreach (JsonElement je in res)
+                {
+                    ids.Add(je.GetString());
+                }
+            }
+
+            return ids;
+        }
+
+        /// <summary>
+        /// 小程序云数据库更新方法
+        /// </summary>
+        /// <param name="collectionName"></param>
+        /// <param name="where"></param>
+        /// <param name="paramData"></param>
+        /// <returns></returns>
+        public async Task<bool> UpdateAsync(string collectionName, string where, IDictionary<string, object> paramData)
+        {
+            var accessToken = await GetAccessTokenAsync();
+            var fun = """
+                        {
+            	"functionTarget": "DCloud-clientDB",
+            	"functionArgs": {
+            		"command": {
+            			"$db": [{
+            				"$method": "collection",
+            				"$param": ["$collectionName"]
+            			}, $where {
+            	            "$method": "update",
+            	            "$param": [$data]
+                        }]
+            		},
+            		"uniIdToken": ""
+            	}
+            }
+            """;
+            string whereStr = "";
+            if (!string.IsNullOrWhiteSpace(where))
+            {
+                whereStr = "{\"$method\":\"where\",\"$param\":[" + where + "]},";
+            }
+            fun = fun.Replace("\r", "").Replace("\n", "").Replace(" ", "").Replace("\t", "");
+            fun = fun.Replace("$collectionName", collectionName);
+            fun = fun.Replace("$where", whereStr);
+
+            string data = JsonSerializer.Serialize(paramData);
+            fun = fun.Replace("$data", data);
+
+
+            var p = new Dictionary<string, object>()
+            {
+                { "method", "serverless.function.runtime.invoke" },
+                { "params",  fun},
+                { "spaceId", this._spaceId },
+                { "timestamp", DateTime.Now.ToUnixTimeMilliseconds() },
+                {"token", accessToken}
+            };
+
+            string url = "https://api.bspapp.com/client";
+
+            var headerItem = new Dictionary<string, string>()
+                {
+                    { "Content-Type", "application/json" },
+                    { "x-serverless-sign", Sign(p, this._clientSecret) },
+                    {"x-basement-token", p["token"].ToString()}
+                }
+                ;
+            var json = await _httpClient.PostAsync(url, p, headerItem: headerItem);
+            var jo = System.Text.Json.JsonDocument.Parse(json);
+            bool success = jo.RootElement.GetProperty("success").GetBoolean();
+            var id = "";
+            if (success)
+            {
+                id = jo.RootElement.GetProperty("data").GetProperty("id").GetString();
+
+            }
+
+            return true;
+        }
 
         ///// <summary>
         ///// 小程序云数据库删除方法

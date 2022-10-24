@@ -1,4 +1,4 @@
-﻿namespace ConsoleApp1.UniCloud
+﻿namespace Hikari.UniCloud.Sdk
 {
     /// <summary>
     /// 查询参数
