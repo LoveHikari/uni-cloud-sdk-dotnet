@@ -1,9 +1,8 @@
-﻿using Hikari.Common;
+﻿using System.Text.Json;
+using Hikari.Common;
 using Hikari.Common.Net.Http;
 using Hikari.Common.Security;
-using System.Collections;
-using System.Collections.Generic;
-using System.Text.Json;
+using Hikari.Common.Text.Json;
 
 namespace Hikari.UniCloud.Sdk
 {
@@ -15,10 +14,18 @@ namespace Hikari.UniCloud.Sdk
         private readonly string _spaceId;
         private readonly string _clientSecret;
         private readonly HttpClientHelper _httpClient;
+        private readonly string _url;
+        private string _accessToken;
+        /// <summary>
+        /// 构造函数
+        /// </summary>
+        /// <param name="spaceId"></param>
+        /// <param name="clientSecret"></param>
         public DataBaseClient(string spaceId, string clientSecret)
         {
             this._spaceId = spaceId;
             this._clientSecret = clientSecret;
+            this._url = "https://api.bspapp.com/client";
             _httpClient = new HttpClientHelper();
         }
 
@@ -28,9 +35,8 @@ namespace Hikari.UniCloud.Sdk
         /// <param name="collectionName">数据库名</param>
         /// <param name="query"></param>
         /// <returns></returns>
-        public async Task<List<T>> QueryAsync<T>(string collectionName, QueryParameter query)
+        public async Task<List<T>> QueryAsync<T>(string collectionName, QueryParameter query) where T : class
         {
-            var accessToken = await GetAccessTokenAsync();
             var fun = """
                         {
             	"functionTarget": "DCloud-clientDB",
@@ -75,7 +81,7 @@ namespace Hikari.UniCloud.Sdk
                 { "params",  fun},
                 { "spaceId", this._spaceId },
                 { "timestamp", DateTime.Now.ToUnixTimeMilliseconds() },
-                {"token", accessToken}
+                {"token", _accessToken}
             };
 
             string url = "https://api.bspapp.com/client";
@@ -85,20 +91,16 @@ namespace Hikari.UniCloud.Sdk
                 { "Content-Type", "application/json" },
                 { "x-serverless-sign", Sign(data, this._clientSecret) },
                 {"x-basement-token", data["token"].ToString()}
-            }
-                ;
-            var json = await _httpClient.PostAsync(url, data, headerItem: headerItem);
+            };
+            _httpClient.SetHeaderItem(headerItem);
+            var json = await _httpClient.PostAsync(url, data);
             var jo = System.Text.Json.JsonDocument.Parse(json);
             bool success = jo.RootElement.GetProperty("success").GetBoolean();
             var resData = new List<T>();
             if (success)
             {
                 var res = jo.RootElement.GetProperty("data").GetProperty("data").EnumerateArray();
-
-                foreach (JsonElement je in res)
-                {
-                    resData.Add(JsonSerializer.Deserialize<T>(je));
-                }
+                resData = res.Deserialize<T>();
             }
 
 
@@ -113,7 +115,6 @@ namespace Hikari.UniCloud.Sdk
         /// <returns></returns>
         public async Task<string> AddAsync(string collectionName, IDictionary<string, object> paramData)
         {
-            var accessToken = await GetAccessTokenAsync();
             var fun = """
                         {
             	"functionTarget": "DCloud-clientDB",
@@ -143,7 +144,7 @@ namespace Hikari.UniCloud.Sdk
                 { "params",  fun},
                 { "spaceId", this._spaceId },
                 { "timestamp", DateTime.Now.ToUnixTimeMilliseconds() },
-                {"token", accessToken}
+                {"token", _accessToken}
             };
 
             string url = "https://api.bspapp.com/client";
@@ -153,9 +154,9 @@ namespace Hikari.UniCloud.Sdk
                     { "Content-Type", "application/json" },
                     { "x-serverless-sign", Sign(p, this._clientSecret) },
                     {"x-basement-token", p["token"].ToString()}
-                }
-                ;
-            var json = await _httpClient.PostAsync(url, p, headerItem: headerItem);
+                };
+            _httpClient.SetHeaderItem(headerItem);
+            var json = await _httpClient.PostAsync(url, p);
             var jo = System.Text.Json.JsonDocument.Parse(json);
             bool success = jo.RootElement.GetProperty("success").GetBoolean();
             var id = "";
@@ -176,7 +177,6 @@ namespace Hikari.UniCloud.Sdk
         /// <returns></returns>
         public async Task<List<string>> AddListAsync(string collectionName, List<IDictionary<string, object>> paramData)
         {
-            var accessToken = await GetAccessTokenAsync();
 
             var fun = """
                         {
@@ -206,7 +206,7 @@ namespace Hikari.UniCloud.Sdk
                 { "params",  fun},
                 { "spaceId", this._spaceId },
                 { "timestamp", DateTime.Now.ToUnixTimeMilliseconds() },
-                {"token", accessToken}
+                {"token", _accessToken}
             };
 
             string url = "https://api.bspapp.com/client";
@@ -216,9 +216,9 @@ namespace Hikari.UniCloud.Sdk
                     { "Content-Type", "application/json" },
                     { "x-serverless-sign", Sign(p, this._clientSecret) },
                     {"x-basement-token", p["token"].ToString()}
-                }
-                ;
-            var json = await _httpClient.PostAsync(url, p, headerItem: headerItem);
+                };
+            _httpClient.SetHeaderItem(headerItem);
+            var json = await _httpClient.PostAsync(url, p);
             var jo = System.Text.Json.JsonDocument.Parse(json);
             bool success = jo.RootElement.GetProperty("success").GetBoolean();
             var ids = new List<string>();
@@ -243,7 +243,6 @@ namespace Hikari.UniCloud.Sdk
         /// <returns></returns>
         public async Task<bool> UpdateAsync(string collectionName, string where, IDictionary<string, object> paramData)
         {
-            var accessToken = await GetAccessTokenAsync();
             var fun = """
                         {
             	"functionTarget": "DCloud-clientDB",
@@ -280,7 +279,7 @@ namespace Hikari.UniCloud.Sdk
                 { "params",  fun},
                 { "spaceId", this._spaceId },
                 { "timestamp", DateTime.Now.ToUnixTimeMilliseconds() },
-                {"token", accessToken}
+                {"token", _accessToken}
             };
 
             string url = "https://api.bspapp.com/client";
@@ -290,9 +289,9 @@ namespace Hikari.UniCloud.Sdk
                     { "Content-Type", "application/json" },
                     { "x-serverless-sign", Sign(p, this._clientSecret) },
                     {"x-basement-token", p["token"].ToString()}
-                }
-                ;
-            var json = await _httpClient.PostAsync(url, p, headerItem: headerItem);
+                };
+            _httpClient.SetHeaderItem(headerItem);
+            var json = await _httpClient.PostAsync(url, p);
             var jo = System.Text.Json.JsonDocument.Parse(json);
             bool success = jo.RootElement.GetProperty("success").GetBoolean();
             var id = "";
@@ -327,14 +326,98 @@ namespace Hikari.UniCloud.Sdk
         //    ResponseBase resultData = System.Text.Json.JsonSerializer.Deserialize<ResponseBase>(json);
         //    return resultData.Deleted;
         //}
+        /// <summary>
+        /// 上传文件
+        /// </summary>
+        /// <param name="file">文件内容</param>
+        /// <param name="fileName">文件名</param>
+        /// <returns></returns>
+        public async Task<string> UploadAsync(byte[] file, string fileName)
+        {
+            var fileInfo = await CreatFileNameAsync(fileName);
+            await UploadFileAsync(file, fileInfo);
+            bool b = await CheckFileAsync(fileInfo.Id);
+            return b ? $"https://{fileInfo.CdnDomain}/{fileInfo.OssPath}" : "";
+        }
 
+        private async Task<FileInfoResponse> CreatFileNameAsync(string fileName)
+        {
+            IDictionary<string, object> options = new Dictionary<string, object>(){
+                {"method", "serverless.file.resource.generateProximalSign"},
+                {"params","{\"env\":\"public\",\"filename\":\""+fileName+"\"}"},
+                {"spaceId", this._spaceId},
+                { "timestamp", DateTime.Now.ToUnixTimeMilliseconds() },
+                {"token", _accessToken}
+            };
 
+            var headerItem = new Dictionary<string, string>()
+            {
+                { "Content-Type", "application/json" },
+                { "x-serverless-sign", Sign(options, this._clientSecret) },
+                {"x-basement-token", options["token"].ToString()}
+            };
+            _httpClient.SetHeaderItem(headerItem);
 
+            var json = await _httpClient.PostAsync(_url, options);
+            var jo = System.Text.Json.JsonDocument.Parse(json);
+            bool success = jo.RootElement.GetProperty("success").GetBoolean();
+            var fileInfo = new FileInfoResponse();
+            if (success)
+            {
+                var res = jo.RootElement.GetProperty("data");
+                fileInfo = res.Deserialize<FileInfoResponse>();
+            }
+            return fileInfo;
+        }
+        private async Task UploadFileAsync(byte[] file, FileInfoResponse fileInfo)
+        {
+            string url = "https://" + fileInfo.Host + "/";
+            IDictionary<string, object> options = new Dictionary<string, object>(){
+                {"Cache-Control", "max-age=2592000"},
+                {"Content-Disposition", "attachment"},
+                {"OSSAccessKeyId", fileInfo.AccessKeyId},
+                {"Signature", fileInfo.Signature},
+                {"host", fileInfo.Host},
+                {"id", fileInfo.Id},
+                {"key", fileInfo.OssPath},
+                {"policy", fileInfo.Policy},
+                {"success_action_status", "200"},
+                {"file", file}
+            };
+            IDictionary<string, string> headerItem = new Dictionary<string, string>()
+            {
+                {"Content-Type", "multipart/form-data"},
+                {"X-OSS-server-side-encrpytion", "AES256" },
+            };
+            _httpClient.SetHeaderItem(headerItem);
+            await _httpClient.PostAsync(url, options);
+        }
+        private async Task<bool> CheckFileAsync(string id)
+        {
+            IDictionary<string, object> options = new Dictionary<string, object>(){
+                {"method", "serverless.file.resource.report"},
+                {"params", "{\"id\":\""+id+"\"}"},
+                {"spaceId", _spaceId},
+                { "timestamp", DateTime.Now.ToUnixTimeMilliseconds() },
+                {"token", _accessToken}
+            };
+            var headerItem = new Dictionary<string, string>()
+            {
+                { "Content-Type", "application/json" },
+                { "x-serverless-sign", Sign(options, this._clientSecret) },
+                { "x-basement-token", options["token"].ToString()! }
+            };
+            _httpClient.SetHeaderItem(headerItem);
+            var html = await _httpClient.PostAsync(_url, options);
+            var jo = System.Text.Json.JsonDocument.Parse(html);
+            return jo.RootElement.GetProperty("success").GetBoolean();
+        }
         /// <summary>
         /// 获取接口调用凭证
         /// </summary>
+        /// <remarks>参考自：https://github.com/79W/uni-cloud-storage</remarks>
         /// <returns></returns>
-        private async Task<string> GetAccessTokenAsync()
+        public async Task GetAccessTokenAsync()
         {
             var data = new Dictionary<string, object>()
             {
@@ -346,22 +429,23 @@ namespace Hikari.UniCloud.Sdk
 
             string url = "https://api.bspapp.com/client";
 
-            HttpClientHelper httpClientHelper = new HttpClientHelper();
+
             var headerItem = new Dictionary<string, string>()
                 {
                     { "Content-Type", "application/json" },
                     { "x-serverless-sign", Sign(data, this._clientSecret) },
-                }
-                ;
-            var html = await httpClientHelper.PostAsync(url, data, headerItem: headerItem);
+                };
+            _httpClient.SetHeaderItem(headerItem);
+            var html = await _httpClient.PostAsync(url, data);
             var jo = System.Text.Json.JsonDocument.Parse(html);
             bool success = jo.RootElement.GetProperty("success").GetBoolean();
+            var accessToken = "";
             if (success)
             {
-                return jo.RootElement.GetProperty("data").GetProperty("accessToken").GetString() ?? "";
+                accessToken = jo.RootElement.GetProperty("data").GetProperty("accessToken").GetString() ?? "";
             }
 
-            return "";
+            _accessToken = accessToken;
         }
 
         private string Sign(IDictionary<string, object> dic, string key)
