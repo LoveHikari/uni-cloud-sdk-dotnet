@@ -35,7 +35,96 @@ namespace Hikari.UniCloud.Sdk
         /// <param name="collectionName">数据库名</param>
         /// <param name="query"></param>
         /// <returns></returns>
-        public async Task<List<T>> QueryAsync<T>(string collectionName, QueryParameter query) where T : class
+        public async Task<string> QueryStringAsync(string collectionName, QueryParameter query)
+        {
+            var fun = """
+            {
+            	"functionTarget": "DCloud-clientDB",
+            	"functionArgs": {
+            		"command": {
+            			"$db": [{
+            				"$method": "collection",
+            				"$param": ["$collectionName"]
+            			}, $where $field {
+            				"$method": "skip",
+            				"$param": [$skip]
+            			}, $limit {
+            	            "$method": "get",
+            	            "$param": [{"getOne":true}]
+                        }]
+            		},
+            		"uniIdToken": ""
+            	}
+            }
+            """;
+            string whereStr = "";
+            if (!string.IsNullOrWhiteSpace(query.Where))
+            {
+                whereStr = "{\"$method\":\"where\",\"$param\":[\"" + query.Where + "\"]},";
+            }
+            string fieldStr = "";
+            if (!string.IsNullOrWhiteSpace(query.Field))
+            {
+                fieldStr = "{\"$method\":\"field\",\"$param\":[\"" + query.Field + "\"]},";
+            }
+
+            string limitStr = "";
+            if (query.Limit > 0)
+            {
+                limitStr = "{\"$method\":\"limit\",\"$param\":[" + query.Limit + "]},";
+            }
+            fun = fun.Replace("\r", "").Replace("\n", "").Replace(" ", "").Replace("\t", "");
+            fun = fun.Replace("$collectionName", collectionName).Replace("$where", whereStr).Replace("$skip", query.Skip.ToString()).Replace("$field", fieldStr).Replace("$limit", limitStr);
+            var data = new Dictionary<string, object>()
+            {
+                { "method", "serverless.function.runtime.invoke" },
+                { "params",  fun},
+                { "spaceId", this._spaceId },
+                { "timestamp", DateTime.Now.ToUnixTimeMilliseconds() },
+                { "token", _accessToken}
+            };
+
+            string url = "https://api.bspapp.com/client";
+
+            var headerItem = new Dictionary<string, string>()
+            {
+                { "Content-Type", "application/json" },
+                { "x-serverless-sign", Sign(data, this._clientSecret) },
+                {"x-basement-token", data["token"].ToString()}
+            };
+            _httpClient.SetHeaderItem(headerItem);
+            var json = await _httpClient.PostAsync(url, data);
+            var jo = System.Text.Json.JsonDocument.Parse(json);
+            bool success = jo.RootElement.GetProperty("success").GetBoolean();
+            if (success)
+            {
+                var res = jo.RootElement.GetProperty("data").GetProperty("data").ToString();
+                return res;
+            }
+
+
+            return "";
+        }
+        /// <summary>
+        /// 小程序云数据库查询方法
+        /// </summary>
+        /// <param name="collectionName">数据库名</param>
+        /// <param name="query"></param>
+        /// <returns></returns>
+        public async Task<T?> QueryAsync<T>(string collectionName, QueryParameter query) where T : class
+        {
+            var res = await QueryStringAsync(collectionName, query);
+            var resData = System.Text.Json.JsonSerializer.Deserialize<T>(res);
+            return resData;
+        }
+        
+        /// <summary>
+        /// 小程序云数据库查询方法
+        /// </summary>
+        /// <param name="collectionName">数据库名</param>
+        /// <param name="query"></param>
+        /// <returns></returns>
+        public async Task<string> QueryListStringAsync(string collectionName, QueryParameter query)
         {
             var fun = """
                         {
@@ -60,12 +149,12 @@ namespace Hikari.UniCloud.Sdk
             string whereStr = "";
             if (!string.IsNullOrWhiteSpace(query.Where))
             {
-                whereStr = "{\"$method\":\"where\",\"$param\":[" + query.Where + "]},";
+                whereStr = "{\"$method\":\"where\",\"$param\":[\"" + query.Where + "\"]},";
             }
             string fieldStr = "";
             if (!string.IsNullOrWhiteSpace(query.Field))
             {
-                fieldStr = "{\"$method\":\"field\",\"$param\":[" + query.Field + "]},";
+                fieldStr = "{\"$method\":\"field\",\"$param\":[\"" + query.Field + "\"]},";
             }
 
             string limitStr = "";
@@ -96,17 +185,28 @@ namespace Hikari.UniCloud.Sdk
             var json = await _httpClient.PostAsync(url, data);
             var jo = System.Text.Json.JsonDocument.Parse(json);
             bool success = jo.RootElement.GetProperty("success").GetBoolean();
-            var resData = new List<T>();
             if (success)
             {
-                var res = jo.RootElement.GetProperty("data").GetProperty("data").EnumerateArray();
-                resData = res.Deserialize<T>();
+                var res = jo.RootElement.GetProperty("data").GetProperty("data").ToString();
+                return res;
             }
 
 
+            return "";
+        }
+        /// <summary>
+        /// 小程序云数据库查询方法
+        /// </summary>
+        /// <param name="collectionName">数据库名</param>
+        /// <param name="query"></param>
+        /// <returns></returns>
+        public async Task<List<T>?> QueryListAsync<T>(string collectionName, QueryParameter query) where T : class
+        {
+            var res = await QueryListStringAsync(collectionName, query);
+            //var res = jo.RootElement.GetProperty("data").GetProperty("data").EnumerateArray();
+            var resData = System.Text.Json.JsonSerializer.Deserialize<List<T>>(res);
             return resData;
         }
-
         /// <summary>
         /// 小程序云数据库添加方法
         /// </summary>

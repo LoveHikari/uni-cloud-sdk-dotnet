@@ -8,13 +8,22 @@
         /// <summary>
         /// 条件
         /// </summary>
-        public string Where { get; set; }
+        public string? Where { get; set; }
+        /// <summary>
+        /// 前几条
+        /// </summary>
         public int Limit { get; set; } = 100000;
+        /// <summary>
+        /// 跳过几条
+        /// </summary>
         public int Skip { get; set; } = 0;
-        public string Field { get; set; }
+        /// <summary>
+        /// 查询字段
+        /// </summary>
+        public string? Field { get; set; }
         /// <summary>
         /// 排序
         /// </summary>
-        public string OrderBy { get; set; }
+        public string? OrderBy { get; set; }
     }
 }
