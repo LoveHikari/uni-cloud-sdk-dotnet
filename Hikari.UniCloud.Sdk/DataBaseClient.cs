@@ -98,11 +98,11 @@ namespace Hikari.UniCloud.Sdk
             bool success = jo.RootElement.GetProperty("success").GetBoolean();
             if (success)
             {
-                var res = jo.RootElement.GetProperty("data").GetProperty("data").ToString();
+                var b = jo.RootElement.GetProperty("data").TryGetProperty("data", out var r);
+                if (!b) return "";
+                var res = r.GetRawText();
                 return res;
             }
-
-
             return "";
         }
         /// <summary>
@@ -114,6 +114,7 @@ namespace Hikari.UniCloud.Sdk
         public async Task<T?> QueryAsync<T>(string collectionName, QueryParameter query) where T : class
         {
             var res = await QueryStringAsync(collectionName, query);
+            if (res == "") return null;
             var resData = System.Text.Json.JsonSerializer.Deserialize<T>(res);
             return resData;
         }
@@ -187,7 +188,9 @@ namespace Hikari.UniCloud.Sdk
             bool success = jo.RootElement.GetProperty("success").GetBoolean();
             if (success)
             {
-                var res = jo.RootElement.GetProperty("data").GetProperty("data").ToString();
+                var b = jo.RootElement.GetProperty("data").TryGetProperty("data", out var r);
+                if (!b) return "";
+                var res = r.GetRawText();
                 return res;
             }
 
@@ -203,6 +206,7 @@ namespace Hikari.UniCloud.Sdk
         public async Task<List<T>?> QueryListAsync<T>(string collectionName, QueryParameter query) where T : class
         {
             var res = await QueryListStringAsync(collectionName, query);
+            if (res == "") return null;
             //var res = jo.RootElement.GetProperty("data").GetProperty("data").EnumerateArray();
             var resData = System.Text.Json.JsonSerializer.Deserialize<List<T>>(res);
             return resData;
