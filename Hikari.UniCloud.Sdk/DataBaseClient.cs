@@ -1,4 +1,5 @@
-﻿using System.Text.Json;
+﻿using System.Text;
+using System.Text.Json;
 using Hikari.Common;
 using Hikari.Common.Net.Http;
 using Hikari.Common.Security;
@@ -118,7 +119,7 @@ namespace Hikari.UniCloud.Sdk
             var resData = System.Text.Json.JsonSerializer.Deserialize<T>(res);
             return resData;
         }
-        
+
         /// <summary>
         /// 小程序云数据库查询方法
         /// </summary>
@@ -127,6 +128,11 @@ namespace Hikari.UniCloud.Sdk
         /// <returns></returns>
         public async Task<string> QueryListStringAsync(string collectionName, QueryParameter query)
         {
+            int limit = query.Limit > 1000 ? 1000 : query.Limit;
+            int skip = query.Skip;
+            int count = 0;
+            StringBuilder sb = new StringBuilder();
+            a:
             var fun = """
                         {
             	"functionTarget": "DCloud-clientDB",
@@ -161,10 +167,10 @@ namespace Hikari.UniCloud.Sdk
             string limitStr = "";
             if (query.Limit > 0)
             {
-                limitStr = "{\"$method\":\"limit\",\"$param\":[" + query.Limit + "]},";
+                limitStr = "{\"$method\":\"limit\",\"$param\":[" + limit + "]},";
             }
             fun = fun.Replace("\r", "").Replace("\n", "").Replace(" ", "").Replace("\t", "");
-            fun = fun.Replace("$collectionName", collectionName).Replace("$where", whereStr).Replace("$skip", query.Skip.ToString()).Replace("$field", fieldStr).Replace("$limit", limitStr);
+            fun = fun.Replace("$collectionName", collectionName).Replace("$where", whereStr).Replace("$skip", skip.ToString()).Replace("$field", fieldStr).Replace("$limit", limitStr);
             var data = new Dictionary<string, object>()
             {
                 { "method", "serverless.function.runtime.invoke" },
@@ -188,14 +194,29 @@ namespace Hikari.UniCloud.Sdk
             bool success = jo.RootElement.GetProperty("success").GetBoolean();
             if (success)
             {
+                query.Limit = query.Limit > jo.RootElement.GetProperty("data").GetProperty("count").GetInt32()
+                    ? jo.RootElement.GetProperty("data").GetProperty("count").GetInt32()
+                    : query.Limit;
                 var b = jo.RootElement.GetProperty("data").TryGetProperty("data", out var r);
-                if (!b) return "";
-                var res = r.GetRawText();
-                return res;
+                if (b)
+                {
+                    var res = r.GetRawText();
+                    sb.Append(res.TrimStart('[').TrimEnd(']') + ",");
+                    count += r.EnumerateArray().Count();
+                    if (count < query.Limit)
+                    {
+                        skip += count;
+                        limit = query.Limit - count > 1000 ? 1000 : query.Limit - count;
+                        goto a;
+                    }
+                }
+                
             }
 
+            if (sb.ToString() == "") return "";
+            var s = "[" + sb.ToString().TrimEnd(",") + "]";
+            return s;
 
-            return "";
         }
         /// <summary>
         /// 小程序云数据库查询方法

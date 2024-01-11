@@ -17,10 +17,10 @@ namespace TestProject2
             Task.Run(dataBaseClient.GetAccessTokenAsync).Wait();
             QueryParameter parameter = new QueryParameter()
             {
-                Where = $"_id=='b23bdccc-ce68-4e12-8e43-ecc701fe165f' && isDel!=true",
+                //Where = $"_id=='b23bdccc-ce68-4e12-8e43-ecc701fe165f' && isDel!=true",
             };
-            var model = await dataBaseClient.QueryAsync<UPark>("job-park", parameter);
-            //_output.WriteLine(vv);
+            var model = await dataBaseClient.QueryListAsync<UBuilding>("building", parameter);
+            _output.WriteLine(model.Count.ToString());
 
             Assert.True(true);
         }

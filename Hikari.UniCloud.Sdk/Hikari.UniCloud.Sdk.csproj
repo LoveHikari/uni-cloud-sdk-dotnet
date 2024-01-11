@@ -9,7 +9,7 @@
 	  <Product>Hikari.UniCloud.Sdk</Product>
 	  <Company>5cm R &amp; D department</Company>
 	  <Description>UniCloud操作类</Description>
-	  <Version>1.0.2</Version>
+	  <Version>1.0.3</Version>
 	  <Language>zh-CN</Language>
 	  <GenerateDocumentationFile>true</GenerateDocumentationFile>
   </PropertyGroup>
