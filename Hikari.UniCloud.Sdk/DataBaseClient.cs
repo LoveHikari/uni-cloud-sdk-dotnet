@@ -388,8 +388,9 @@ namespace Hikari.UniCloud.Sdk
             string whereStr = "";
             if (!string.IsNullOrWhiteSpace(where))
             {
-                whereStr = "{\"$method\":\"where\",\"$param\":[" + where + "]},";
+                whereStr = "{\"$method\":\"where\",\"$param\":[\"" + where + "\"]},";
             }
+
             fun = fun.Replace("\r", "").Replace("\n", "").Replace(" ", "").Replace("\t", "");
             fun = fun.Replace("$collectionName", collectionName);
             fun = fun.Replace("$where", whereStr);
@@ -407,7 +408,7 @@ namespace Hikari.UniCloud.Sdk
                 {"token", _accessToken}
             };
 
-            string url = "https://api.bspapp.com/client";
+            string url = "https://api.next.bspapp.com/client";
 
             var headerItem = new Dictionary<string, string>()
                 {
@@ -419,14 +420,14 @@ namespace Hikari.UniCloud.Sdk
             var json = await _httpClient.PostAsync(url, p);
             var jo = System.Text.Json.JsonDocument.Parse(json);
             bool success = jo.RootElement.GetProperty("success").GetBoolean();
-            var id = "";
             if (success)
             {
-                id = jo.RootElement.GetProperty("data").GetProperty("id").GetString();
+                var code = jo.RootElement.GetProperty("data").GetProperty("code").GetInt32();
+                return code == 0;
 
             }
 
-            return true;
+            return false;
         }
 
         ///// <summary>

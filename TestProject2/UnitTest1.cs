@@ -19,8 +19,12 @@ namespace TestProject2
             {
                 //Where = $"_id=='b23bdccc-ce68-4e12-8e43-ecc701fe165f' && isDel!=true",
             };
-            var model = await dataBaseClient.QueryListAsync<UBuilding>("building", parameter);
-            _output.WriteLine(model.Count.ToString());
+
+            await dataBaseClient.UpdateAsync("building", $"'_id' == '6497adab0c801c4baac87701'", new Dictionary<string, object>()
+                    {
+                        { "salePrice", 20 }
+                    });
+            //_output.WriteLine(model.Count.ToString());
 
             Assert.True(true);
         }
